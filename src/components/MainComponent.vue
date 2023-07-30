@@ -4,12 +4,12 @@
         <div class="bg-success input-group p-0 mb-0 m-auto rounded-circle">
         <input type="text" class="form-control" placeholder="Enter Movies" aria-label="Username"
           aria-describedby="basic-addon1" v-model="movieTarget">
-          <span class="input-group-text p-2 fs-4" id="basic-addon1">
+          <span class="input-group-text p-2 fs-4 cur-pointer btn-search" id="basic-addon1" @click="filteredData()">
             <i class="fa-solid fa-magnifying-glass p-1"></i>
           </span>
         </div>
       </form>
-        <ul class="list-group list-search col-10 col-lg-6 m-auto mt-1 position-absolute" v-if="filteredData.length && movieTarget">
+        <!-- <ul class="list-group list-search col-10 col-lg-6 m-auto mt-1 position-absolute" v-if="filteredData.length && movieTarget">
           <li class="list-group-item list-group-item-action cur-pointer d-flex justify-content-between align-items-center" v-for="movie, index in filteredData" :key="index" @click="showMoviesInPage(movie.id)">
             <p class="w-auto">{{ movie.title }}</p>
             <img :src="getPosterMovieUrl(movie.path)" class="img-search p-0" :alt="movie.title" loading="lazy">
@@ -17,9 +17,9 @@
         </ul>
         <ul class="list-group list-search col-10 col-lg-6 m-auto mt-1 position-absolute" v-else-if="!filteredData.length">
           <li class="list-group-item p-3">not found movie</li>
-        </ul>
+        </ul> -->
     <div class="movies mt-5 row g-4 justify-content-center justify-content-sm-center">
-      <div class="col-10 col-sm-6 col-md-4 col-lg-3" v-for="movie, index in fetchData" v-show="startMovie <= index && index < endMovie" :key="index">
+      <div class="col-10 col-sm-6 col-md-4 col-lg-3" v-for="movie, index in filteredData" v-show="(startMovie <= index && index < endMovie && !movieTarget) || movieTarget" :key="index">
         <div
         class="movie p-0 m-1 card row justify-content-between bg-dark rounded shadow-sm text-start text-decoration-none">
         <img :src="getPosterMovieUrl(movie.poster_path)" class="card-img-top p-0" :alt="movie.original_title"
@@ -66,7 +66,7 @@
       </div>
       <div class="col-8 col-sm-6 m-auto col-md-4 col-lg-3 my-3">
         <div class="bg-light shadow rounded p-3">
-          <p class="fs-4">Active titles</p>
+          <p class="fs-4">Action titles</p>
         <p class="fw-bold fs-1">{{ movieActive }}</p>
         </div>
       </div>
@@ -118,13 +118,12 @@ export default {
       this.startMovie = startMovieCount
       this.endMovie = endMovieCount
       // Reset the search input
-      this.movieTarget = ''
+      // this.movieTarget = ''
       // Scroll to the top
       window.scrollTo({
         top: 0,
         behavior: 'smooth'
       })
-      this.statistics()
     },
     // get poster url path
     getPosterMovieUrl (posterUrl) {
@@ -137,25 +136,37 @@ export default {
       this.titlesOver7 = 0
       this.voteCount = 0
       this.movieActive = 0
-      this.fetchData.forEach((movie, index) => {
-        if (this.startMovie <= index && index < this.endMovie) {
+      if (this.movieTarget.length === 0) {
+        this.fetchData.forEach((movie, index) => {
+          if (this.startMovie <= index && index < this.endMovie) {
+            if (movie.vote_average >= 7) {
+              this.titlesOver7++
+            }
+          }
+        })
+        this.fetchData.forEach((movie, index) => {
+          if (this.startMovie <= index && index < this.endMovie) {
+            if (movie.vote_average > 5) {
+              this.titlesOver5++
+            }
+          }
+        })
+        this.fetchData.forEach((movie, index) => {
+          if (this.startMovie <= index && index < this.endMovie) {
+            this.voteCount += movie.vote_count
+          }
+        })
+      } else {
+        this.filteredData.forEach((movie, index) => {
           if (movie.vote_average >= 7) {
             this.titlesOver7++
           }
-        }
-      })
-      this.fetchData.forEach((movie, index) => {
-        if (this.startMovie <= index && index < this.endMovie) {
-          if (movie.vote_average < 5) {
+          if (movie.vote_average > 5) {
             this.titlesOver5++
           }
-        }
-      })
-      this.fetchData.forEach((movie, index) => {
-        if (this.startMovie <= index && index < this.endMovie) {
           this.voteCount += movie.vote_count
-        }
-      })
+        })
+      }
       const voteCountAsString = String(this.voteCount)
       if (voteCountAsString.length <= 3) {
         this.voteCount = voteCountAsString
@@ -181,12 +192,20 @@ export default {
     }
   },
   computed: {
-    // filter data from input search
     filteredData () {
+      this.statistics()
       const filtering = new RegExp(this.movieTarget, 'i')
       return this.arrayTarget.filter((el) => {
         return el.title.match(filtering)
       })
+    }
+  },
+  watch: {
+    filteredData: {
+      handler () {
+        this.statistics()
+      },
+      immediate: true // Run the handler immediately after creating the watcher
     }
   },
   async created () {
@@ -195,12 +214,15 @@ export default {
     this.fetchData = [...page1Data, ...page2Data]
     this.numbersOfMovies = this.fetchData.length
     this.endMovie = this.numbersOfMoviesInPage
-    this.statistics()
     this.fetchData.forEach((el, index) => {
       const objMovie = {
         id: index,
         title: el.original_title,
-        path: this.getPosterMovieUrl(el.poster_path)
+        release_date: el.release_date,
+        original_language: el.original_language,
+        vote_average: el.vote_average,
+        vote_count: el.vote_count,
+        poster_path: this.getPosterMovieUrl(el.poster_path)
       }
       this.arrayTarget.push(objMovie)
     })
